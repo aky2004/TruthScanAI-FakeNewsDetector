@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom'
+
 export default function Hero() {
   return (
     <section id="detect" className="relative overflow-hidden">
@@ -19,8 +21,8 @@ export default function Hero() {
             </div>
 
             <div className="mt-10 flex flex-col sm:flex-row items-start gap-6">
-              <a
-                href="#"
+              <Link
+                to="/scan"
                 id="cta-primary"
                 className="group relative inline-block px-10 py-5 bg-[#09090B] text-[#D2E823] border-2 border-[#09090B] hard-shadow-lg btn-press cursor-none"
               >
@@ -28,7 +30,7 @@ export default function Hero() {
                   <iconify-icon icon="lucide:scan-search" />
                   SCAN CONTENT
                 </span>
-              </a>
+              </Link>
               <div className="max-w-xs">
                 <p className="text-lg font-medium leading-tight">
                   Analyze news articles, social media posts, and forwarded messages using AI-powered misinformation detection and credibility analysis.

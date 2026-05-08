@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import Cursor from './components/Cursor'
 import Home from './components/Home'
 import DetectorPage from './components/DetectorPage'
+import ScanContent from './components/ScanContent'
 
 function App() {
   return (
@@ -14,6 +15,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/detector" element={<DetectorPage />} />
+        <Route path="/scan" element={<ScanContent />} />
       </Routes>
     </Router>
   )
