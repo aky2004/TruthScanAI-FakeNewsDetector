@@ -2,11 +2,11 @@ import { useState, useRef, useEffect } from 'react'
 import Navbar from './Navbar'
 import Cursor from './Cursor'
 
-const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY
+const NVIDIA_API_KEY = import.meta.env.VITE_NVIDIA_API_KEY
 
 async function generateRealAnalysis(text) {
   try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`
+    const url = "/api/nvidia/v1/chat/completions"
     
     const prompt = `You are VERITAS, an elite AI misinformation detection engine. Analyze the following text or claim for misinformation, factual accuracy, sensationalism, and bias.
     Text: "${text}"
@@ -21,13 +21,25 @@ async function generateRealAnalysis(text) {
 
     const res = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${NVIDIA_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: "meta/llama-3.1-70b-instruct",
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 500,
+        temperature: 0.2
+      })
     })
     
     const data = await res.json()
-    const textResponse = data.candidates[0].content.parts[0].text
-    const parsed = JSON.parse(textResponse.replace(/```json/g, '').replace(/```/g, '').trim())
+    let textResponse = data.choices[0].message.content
+    // Extract JSON if model wraps it in markdown
+    const jsonMatch = textResponse.match(/\{[\s\S]*\}/)
+    if (jsonMatch) textResponse = jsonMatch[0]
+    
+    const parsed = JSON.parse(textResponse)
 
     let ratingClass = 'text-yellow-600 bg-yellow-100'
     if (parsed.verdict === 'HIGHLY SUSPICIOUS') ratingClass = 'text-red-600 bg-red-100'

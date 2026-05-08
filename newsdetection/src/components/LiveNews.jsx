@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 
 const EVENT_REGISTRY_API_KEY = "7b9d03bd-dca0-43b4-a1cc-7a3e39ff7256"
 const BASE_URL = "https://eventregistry.org/api/v1/article/getArticles"
-const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY
+const NVIDIA_API_KEY = import.meta.env.VITE_NVIDIA_API_KEY
 
 export default function LiveNews() {
   const [articles, setArticles] = useState([])
@@ -48,7 +48,7 @@ export default function LiveNews() {
     setAnalyzingId(article.uri)
     try {
       const textToAnalyze = `Title: ${article.title}\nBody: ${article.body}`
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`
+      const url = "/api/nvidia/v1/chat/completions"
       
       const prompt = `You are a misinformation detection AI. Analyze this news article.
       Article: "${textToAnalyze}"
@@ -62,13 +62,24 @@ export default function LiveNews() {
 
       const res = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${NVIDIA_API_KEY}`
+        },
+        body: JSON.stringify({
+          model: "meta/llama-3.1-70b-instruct",
+          messages: [{ role: "user", content: prompt }],
+          max_tokens: 500,
+          temperature: 0.2
+        })
       })
       
       const data = await res.json()
-      const textResponse = data.candidates[0].content.parts[0].text
-      const parsed = JSON.parse(textResponse.replace(/```json/g, '').replace(/```/g, '').trim())
+      let textResponse = data.choices[0].message.content
+      const jsonMatch = textResponse.match(/\{[\s\S]*\}/)
+      if (jsonMatch) textResponse = jsonMatch[0]
+
+      const parsed = JSON.parse(textResponse)
 
       let resultHtml = ''
       let isFlagged = parsed.verdict === 'HIGHLY SUSPICIOUS'
