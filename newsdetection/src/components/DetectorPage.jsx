@@ -2,6 +2,63 @@ import { useState, useRef, useEffect } from 'react'
 import Navbar from './Navbar'
 import Cursor from './Cursor'
 
+const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY
+
+async function generateRealAnalysis(text) {
+  try {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`
+    
+    const prompt = `You are VERITAS, an elite AI misinformation detection engine. Analyze the following text or claim for misinformation, factual accuracy, sensationalism, and bias.
+    Text: "${text}"
+    
+    Return ONLY a raw JSON object (no markdown, no formatting) with this exact structure:
+    {
+      "score": <number 0-100 representing credibility>,
+      "verdict": "<VERIFIED, MIXED SIGNALS, or HIGHLY SUSPICIOUS>",
+      "summary": "<2-3 sentences explaining the analysis reasoning>",
+      "flags": ["<array of 1-3 short strings like 'Sensationalist language', 'Missing context', or 'None detected'>"]
+    }`
+
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+    })
+    
+    const data = await res.json()
+    const textResponse = data.candidates[0].content.parts[0].text
+    const parsed = JSON.parse(textResponse.replace(/```json/g, '').replace(/```/g, '').trim())
+
+    let ratingClass = 'text-yellow-600 bg-yellow-100'
+    if (parsed.verdict === 'HIGHLY SUSPICIOUS') ratingClass = 'text-red-600 bg-red-100'
+    if (parsed.verdict === 'VERIFIED') ratingClass = 'text-green-600 bg-green-100'
+
+    return `[ANALYSIS COMPLETE]
+    
+TARGET: "${text}"
+CREDIBILITY SCORE: <span class="text-2xl">${parsed.score}%</span>
+
+<div class="mt-4 mb-4 p-4 border-2 border-[#09090B] bg-white rounded-xl hard-shadow-sm">
+  <div class="text-[10px] font-mono mb-1 text-[#09090B]/60">VERDICT:</div>
+  <div class="font-bold uppercase tracking-wider px-2 py-1 inline-block border border-[#09090B] ${ratingClass} text-xs mb-3">
+    ${parsed.verdict}
+  </div>
+  <div class="text-sm font-medium leading-relaxed mb-3">
+    ${parsed.summary}
+  </div>
+  <div class="border-t border-[#09090B]/10 pt-2">
+    <span class="text-[10px] font-mono text-[#09090B]/60">DETECTED FLAGS:</span>
+    <ul class="list-disc list-inside text-xs font-bold mt-1">
+      ${parsed.flags.map(f => `<li>${f}</li>`).join('')}
+    </ul>
+  </div>
+</div>
+`
+  } catch (err) {
+    return `⚠️ [ERROR] VERITAS AI encountered a neural network fault: ${err.message}`
+  }
+}
+
 export default function DetectorPage() {
   const [messages, setMessages] = useState([
     {
@@ -31,12 +88,12 @@ export default function DetectorPage() {
     setInput('')
     setIsScanning(true)
 
-    // Simulate AI analysis delay
-    setTimeout(() => {
+    // Real AI Fact Check API Call
+    setTimeout(async () => {
+      const aiResponse = await generateRealAnalysis(userMsg.text)
       setIsScanning(false)
-      const aiResponse = generateMockAnalysis(userMsg.text)
       setMessages(prev => [...prev, { id: Date.now() + 1, role: 'ai', text: aiResponse }])
-    }, 2500)
+    }, 500)
   }
 
   return (
@@ -137,26 +194,4 @@ export default function DetectorPage() {
       </div>
     </>
   )
-}
-
-function generateMockAnalysis(text) {
-  const isUrl = text.startsWith('http')
-  const score = Math.floor(Math.random() * 60) + 20 // 20-80 random score
-  
-  const status = score > 60 ? '<span class="text-green-600 bg-white px-2 py-0.5 border border-[#09090B] rounded-full text-xs">VERIFIED LIKELY</span>' 
-              : score < 40 ? '<span class="text-red-500 bg-white px-2 py-0.5 border border-[#09090B] rounded-full text-xs">HIGHLY SUSPICIOUS</span>'
-              : '<span class="text-yellow-600 bg-white px-2 py-0.5 border border-[#09090B] rounded-full text-xs">MIXED SIGNALS</span>'
-
-  return `[ANALYSIS COMPLETE]
-  
-TARGET: ${isUrl ? text : 'User Input Text'}
-CREDIBILITY SCORE: <span class="text-2xl">${score}%</span>
-VERDICT: ${status}
-
-> CROSS-REFERENCING 120,000+ SOURCES...
-> SENTIMENT ANALYSIS: EMOTIONALLY CHARGED (84%)
-> SOURCE DOMAIN CHECK: ${isUrl ? 'UNKNOWN' : 'N/A'}
-
-SUMMARY:
-The provided content exhibits language patterns commonly associated with sensationalism. Cross-referencing against verified databases yields inconsistent factual backing. Exercise caution before sharing.`
 }
